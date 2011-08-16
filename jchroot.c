@@ -93,10 +93,100 @@ static int step3(struct config *config) {
   return step4(config);
 }
 
+struct mount_opt {
+  char *name;
+  int clear;
+  int flag;
+};
+
+static struct mount_opt mount_opt[] = {
+  { "defaults",   0, 0              },
+  { "ro",         0, MS_RDONLY      },
+  { "rw",         1, MS_RDONLY      },
+  { "suid",       1, MS_NOSUID      },
+  { "nosuid",     0, MS_NOSUID      },
+  { "dev",        1, MS_NODEV       },
+  { "nodev",      0, MS_NODEV       },
+  { "exec",       1, MS_NOEXEC      },
+  { "noexec",     0, MS_NOEXEC      },
+  { "sync",       0, MS_SYNCHRONOUS },
+  { "async",      1, MS_SYNCHRONOUS },
+  { "atime",      1, MS_NOATIME     },
+  { "noatime",    0, MS_NOATIME     },
+  { "diratime",   1, MS_NODIRATIME  },
+  { "nodiratime", 0, MS_NODIRATIME  },
+  { "bind",       0, MS_BIND        },
+  { NULL,         0, 0              },
+};
+
 /* Step 2: Mount anything needed */
 static int step2(void *arg) {
   struct config *config = arg;
-  /* TODO: parse provided fstab and mount content */
+  if (config->fstab) {
+    struct mntent *mntent;
+    char path[256];
+    FILE *file;
+
+    file = setmntent(config->fstab, "r");
+    if (!file) {
+      fprintf(stderr, "unable to open '%s': %m\n", config->fstab);
+      return EXIT_FAILURE;
+    }
+
+    while ((mntent = getmntent(file))) {
+      /* We need to parse mnt_opts */
+      unsigned long mntflags = 0;
+      char *mntopts = strdup(mntent->mnt_opts);
+      char *mntdata = malloc(strlen(mntent->mnt_opts) + 1);
+      if (!mntdata || !mntopts) {
+	fprintf(stderr, "unable to allocate memory");
+	free(mntopts);
+	free(mntdata);
+	return EXIT_FAILURE;
+      }
+      *mntdata = 0;
+
+      char *opt = NULL;
+      struct mount_opt *mo;
+
+      for (opt = strtok(mntopts, ","); opt != NULL;
+	   opt = strtok(NULL, ",")) {
+	/* Is `opt` a known option? */
+	for (mo = &mount_opt[0];
+	     mo->name != NULL; mo++) {
+	  if (!strncmp(opt, mo->name, strlen(mo->name))) {
+	    if (mo->clear)
+	      mntflags &= ~mo->flag;
+	    else
+	      mntflags |= mo->flag;
+	    break;
+	  }
+	}
+	if (!mo->name) {
+	  /* `opt` is not know, append it to `mntdata` */
+	  if (strlen(mntdata)) strcat(mntdata, ",");
+	  strcat(mntdata, opt);
+	}
+      }
+      free(mntopts);
+
+      /* Mount! */
+      if (snprintf(path, sizeof(path), "%s%s",
+		   config->target, mntent->mnt_dir) >= sizeof(path)) {
+	fprintf(stderr, "path too long: %s\n", mntent->mnt_dir);
+	free(mntdata);
+	return EXIT_FAILURE;
+      }
+      if (mount(mntent->mnt_fsname, path, mntent->mnt_type,
+		mntflags, mntdata)) {
+	fprintf(stderr, "unable to mount '%s' on '%s': %m\n",
+		mntent->mnt_fsname, mntent->mnt_dir);
+	free(mntdata);
+	return EXIT_FAILURE;
+      }
+      free(mntdata);
+    }
+  }
   return step3(config);
 }
 
