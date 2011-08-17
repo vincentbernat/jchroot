@@ -215,7 +215,7 @@ static int step1(struct config *config) {
   if (config->hostname) flags |= CLONE_NEWUTS;
   pid = clone(step2,
 	      stack,
-	      SIGCHLD | flags,
+	      SIGCHLD | flags | CLONE_FILES,
 	      config);
   if (pid < 0) {
     fprintf(stderr, "failed to clone: %m\n");
