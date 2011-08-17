@@ -35,6 +35,7 @@ struct config {
   uid_t user;
   gid_t group;
   char *fstab;
+  char *hostname;
   char *target;
   char *const *command;
 };
@@ -44,15 +45,16 @@ static void usage() {
 	  "Usage: jchroot [OPTIONS] TARGET [--] COMMAND\n"
 	  "\n"
 	  "Available options:\n"
-	  "  -u USER | --user=USER     Specify user to use after chroot\n"
-	  "  -g USER | --group=USER    Specify group to use after chroot\n"
-	  "  -f FSTAB | --fstab=FSTAB  Specify a fstab(5) file\n"
+	  "  -u USER  | --user=USER     Specify user to use after chroot\n"
+	  "  -g USER  | --group=USER    Specify group to use after chroot\n"
+	  "  -f FSTAB | --fstab=FSTAB   Specify a fstab(5) file\n"
+	  "  -n NAME  | --hostname=NAME Specify a hostname\n"
 	  );
   exit(EXIT_FAILURE);
 }
 
 /* Step 5: Execute command */
-static int step5(struct config *config) {
+static int step6(struct config *config) {
   if (execvp(config->command[0], config->command) == -1) {
     int i = 1;
     fprintf(stderr, "unable to execute '%s", config->command[0]);
@@ -64,7 +66,7 @@ static int step5(struct config *config) {
 }
 
 /* Step 4: Drop privileges */
-static int step4(struct config *config) {
+static int step5(struct config *config) {
   if (config->group != (gid_t) -1 && setgid(config->group)) {
     fprintf(stderr, "unable to change to GID %d: %m\n", config->group);
     return EXIT_FAILURE;
@@ -77,11 +79,11 @@ static int step4(struct config *config) {
     fprintf(stderr, "unable to change to UID %d: %m\n", config->user);
     return EXIT_FAILURE;
   }
-  return step5(config);
+  return step6(config);
 }
 
 /* Step 3: Chroot */
-static int step3(struct config *config) {
+static int step4(struct config *config) {
   if (chroot(config->target)) {
     fprintf(stderr, "unable to chroot to %s: %m\n", config->target);
     return EXIT_FAILURE;
@@ -89,6 +91,16 @@ static int step3(struct config *config) {
   if (chdir("/")) {
     fprintf(stderr, "unable to go into chroot: %m\n");
     return EXIT_FAILURE;
+  }
+  return step5(config);
+}
+
+/* Step 3: Set hostname */
+static int step3(struct config *config) {
+  if (config->hostname &&
+      sethostname(config->hostname, strlen(config->hostname))) {
+    fprintf(stderr, "unable to change hostname to '%s': %m\n",
+	    config->hostname);
   }
   return step4(config);
 }
@@ -139,7 +151,7 @@ static int step2(void *arg) {
       char *mntopts = strdup(mntent->mnt_opts);
       char *mntdata = malloc(strlen(mntent->mnt_opts) + 1);
       if (!mntdata || !mntopts) {
-	fprintf(stderr, "unable to allocate memory");
+	fprintf(stderr, "unable to allocate memory\n");
 	free(mntopts);
 	free(mntdata);
 	return EXIT_FAILURE;
@@ -190,18 +202,19 @@ static int step2(void *arg) {
   return step3(config);
 }
 
-/* Step 1: create a new PID/IPC/NS namespace */
+/* Step 1: create a new PID/IPC/NS/UTS namespace */
 static int step1(struct config *config) {
   int ret;
   pid_t pid;
 
   long stack_size = sysconf(_SC_PAGESIZE);
   void *stack = alloca(stack_size) + stack_size;
+  int flags = CLONE_NEWPID | CLONE_NEWIPC | CLONE_NEWNS;
 
+  if (config->hostname) flags |= CLONE_NEWUTS;
   pid = clone(step2,
 	      stack,
-	      SIGCHLD |
-	      CLONE_NEWPID | CLONE_NEWIPC | CLONE_NEWNS,
+	      SIGCHLD | flags,
 	      config);
   if (pid < 0) {
     fprintf(stderr, "failed to clone: %m\n");
@@ -222,14 +235,15 @@ int main(int argc, char * argv[]) {
   while (1) {
     int option_index = 0;
     static struct option long_options[] = {
-      { "user",  required_argument, 0, 'u' },
-      { "group", required_argument, 0, 'g' },
-      { "fstab", required_argument, 0, 'f' },
-      { "help",  no_argument,       0, 'h' },
-      { 0,       0,                 0, 0   }
+      { "user",     required_argument, 0, 'u' },
+      { "group",    required_argument, 0, 'g' },
+      { "fstab",    required_argument, 0, 'f' },
+      { "hostname", required_argument, 0, 'n' },
+      { "help",     no_argument,       0, 'h' },
+      { 0,          0,                 0, 0   }
     };
 
-    c = getopt_long(argc, argv, "u:g:f:",
+    c = getopt_long(argc, argv, "u:g:f:n:",
 		    long_options, &option_index);
     if (c == -1) break;
 
@@ -245,7 +259,7 @@ int main(int argc, char * argv[]) {
       if (!passwd) {
 	config.user = strtoul(optarg, NULL, 10);
 	if (errno) {
-	  fprintf(stderr, "'%s' is not a valid user", optarg);
+	  fprintf(stderr, "'%s' is not a valid user\n", optarg);
 	  usage();
 	}
       } else {
@@ -262,7 +276,7 @@ int main(int argc, char * argv[]) {
       if (!group) {
 	config.group = strtoul(optarg, NULL, 10);
 	if (errno) {
-	  fprintf(stderr, "'%s' is not a valid group", optarg);
+	  fprintf(stderr, "'%s' is not a valid group\n", optarg);
 	  usage();
 	}
       } else {
@@ -272,6 +286,10 @@ int main(int argc, char * argv[]) {
     case 'f':
       if (!optarg) usage();
       config.fstab = optarg;
+      break;
+    case 'n':
+      if (!optarg) usage();
+      config.hostname = optarg;
       break;
     }
   }
