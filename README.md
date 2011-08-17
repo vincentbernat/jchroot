@@ -24,16 +24,19 @@ This is what jchroot does:
  6. drop privileges if needed
  7. execute your command
  
- After your command has been executed, any process started by the
- execution of this command will be killed, any IPC will be freed, any
- mount point will be unmounted. All clean!
+After your command has been executed, any process started by the
+execution of this command will be killed, any IPC will be freed, any
+mount point will be unmounted. All clean!
  
- See also [schroot][1] and [lxc][2]. `schroot` is not yet able to do
- this, but this is planned. See [bug #637870][3]. `lxc` should be able
- to do this but seems targeted at more complex situations...
+See also [schroot][1] and [lxc][2]. `schroot` is not yet able to do
+this, but this is planned. See [bug #637870][3]. `lxc` should be able
+to do this but seems targeted at more complex situations...
  
- Installation & use
- ------------------
+[1]: http://packages.qa.debian.org/s/schroot.html
+[2]: http://lxc.sourceforge.net/
+[3]: http://bugs.debian.org/637870
+
+Installation & use
+------------------
  
- Just use `make` to get `jchroot`. Then `jchroot --help` to get help.
- 
+Just use `make` to get `jchroot`. Then `jchroot --help` to get help.
