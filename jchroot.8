@@ -1,0 +1,90 @@
+.\" Copyright (c) 2011 Vincent Bernat <bernat@luffy.cx>
+.\"
+.\" Permission to use, copy, modify, and/or distribute this software for any
+.\" purpose with or without fee is hereby granted, provided that the above
+.\" copyright notice and this permission notice appear in all copies.
+.\"
+.\" THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+.\" WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+.\" MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+.\" ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+.\" WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+.\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+.\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+.\"
+.Dd $Mdocdate: August 17 2011 $
+.Dt JCHROOT 8
+.Os
+.Sh NAME
+.Nm jchroot
+.Nd chroot with more isolation
+.Sh SYNOPSIS
+.Nm
+.Op Fl h
+.Op Fl u Ar user
+.Op Fl g Ar group
+.Op Fl f Ar fstab
+.Op Fl n Ar hostname
+.Ar target
+.Op --
+.Ar command
+.Sh DESCRIPTION
+.Nm
+provides a chroot to run a command or a shell with more isolation,
+thanks to features introduced in recent Linux kernels (2.6.24 or
+later). Like
+.Xr chroot 8 ,
+.Nm
+will change the root directory to the specified
+.Ar target
+before running the provided
+.Ar command
+but it will also provide a new PID namespace, a new mount namespace
+and a new IPC namespace to ensure better isolution.
+.Pp
+Moreover, when the command exits, the kernel will automatically kill
+any process that was started by the command, umount any filesystems
+mounted by
+.Nm
+or the commmand and cleanup the IPC namespace. Therefore, most daemons
+can be run safely from the chroot: they will be killed on exit.
+.Pp
+The options are as follows:
+.Bl -tag -width Ds
+.It Fl u , -user Ar user
+Specify user to use before chrooting. This can be specified as a user
+name or an UID. In case of a user name, the primary group of the user
+is also used unless another group is specified.
+.It Fl g , -group Ar group
+Specify primary group to use before chrooting. This can be specified
+as a group name or a GID.
+.It Fl f , -fstab Ar fstab
+Specify a file location in the
+.Xr fstab 5
+format containing mount points relative to
+.Ar target
+to mount inside the chroot. Here is an example of such a file:
+.Bd -literal
+proc     /proc  proc    defaults                  0  0
+sys      /sys   sysfs   defaults                  0  0
+/home    /home  none    bind,rw                   0  0
+/dev/pts /dev/pts none  bind,rw                   0  0
+/var/run /var/run tmpfs rw,nosuid,noexec,mode=755 0  0
+
+/etc/resolv.conf /etc/resolv.conf none bind,ro    0  0
+.Ed
+.It Fl n , -hostname Ar name
+Specify a hostname for the chroot. This enables UTS namespace.
+.It Fl h
+Get help.
+.El
+.Sh SEE ALSO
+.Xr chroot 8 ,
+.Xr clone 2 ,
+.Xr lxc 7
+.Sh AUTHORS
+.An -nosplit
+The
+.Nm
+program was written by
+.An Vincent Bernat Aq bernat@luffy.cx .

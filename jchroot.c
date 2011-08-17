@@ -40,16 +40,17 @@ struct config {
   char *const *command;
 };
 
+const char *progname;
 static void usage() {
   fprintf(stderr,
-	  "Usage: jchroot [OPTIONS] TARGET [--] COMMAND\n"
+	  "Usage: %s [OPTIONS] TARGET [--] COMMAND\n"
 	  "\n"
 	  "Available options:\n"
 	  "  -u USER  | --user=USER     Specify user to use after chroot\n"
 	  "  -g USER  | --group=USER    Specify group to use after chroot\n"
 	  "  -f FSTAB | --fstab=FSTAB   Specify a fstab(5) file\n"
-	  "  -n NAME  | --hostname=NAME Specify a hostname\n"
-	  );
+	  "  -n NAME  | --hostname=NAME Specify a hostname\n",
+	  progname);
   exit(EXIT_FAILURE);
 }
 
@@ -230,6 +231,7 @@ int main(int argc, char * argv[]) {
   struct config config;
   memset(&config, 0, sizeof(struct config));
   config.user = config.group = -1;
+  progname = argv[0];
 
   int c;
   while (1) {
@@ -243,14 +245,11 @@ int main(int argc, char * argv[]) {
       { 0,          0,                 0, 0   }
     };
 
-    c = getopt_long(argc, argv, "u:g:f:n:",
+    c = getopt_long(argc, argv, "hu:g:f:n:",
 		    long_options, &option_index);
     if (c == -1) break;
 
     switch (c) {
-    case 'h':
-      usage();
-      break;
     case 'u':
       if (!optarg) usage();
 
@@ -291,6 +290,8 @@ int main(int argc, char * argv[]) {
       if (!optarg) usage();
       config.hostname = optarg;
       break;
+    default:
+      usage();
     }
   }
 
