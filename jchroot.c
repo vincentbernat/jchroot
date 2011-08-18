@@ -54,7 +54,7 @@ static void usage() {
   exit(EXIT_FAILURE);
 }
 
-/* Step 5: Execute command */
+/* Step 6: Execute command */
 static int step6(struct config *config) {
   if (execvp(config->command[0], config->command) == -1) {
     int i = 1;
@@ -66,7 +66,7 @@ static int step6(struct config *config) {
   return 0; /* No real return... */
 }
 
-/* Step 4: Drop privileges */
+/* Step 5: Drop privileges */
 static int step5(struct config *config) {
   if (config->group != (gid_t) -1 && setgid(config->group)) {
     fprintf(stderr, "unable to change to GID %d: %m\n", config->group);
@@ -83,7 +83,7 @@ static int step5(struct config *config) {
   return step6(config);
 }
 
-/* Step 3: Chroot */
+/* Step 4: Chroot */
 static int step4(struct config *config) {
   if (chroot(config->target)) {
     fprintf(stderr, "unable to chroot to %s: %m\n", config->target);
