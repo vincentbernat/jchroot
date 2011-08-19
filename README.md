@@ -16,6 +16,7 @@ exit the shell. Any filesystem that was mounted will also be unmounted
 automatically.
 
 This is what jchroot does:
+
  1. provide a new PID/IPC/mount/UTS namespace
  2. mount anything you want
  3. set hostname if needed
@@ -29,7 +30,9 @@ mount point will be unmounted. All clean!
  
 See also [schroot][1] and [lxc][2]. `schroot` is not yet able to do
 this, but this is planned. See [bug #637870][3]. `lxc` should be able
-to do this but seems targeted at more complex situations...
+to do this but seems targeted at more complex situations... If you use
+systemd, look at `nspawn` or `systemd-nspawn` which does almost the
+same thing than jchroot.
  
 [1]: http://packages.qa.debian.org/s/schroot.html
 [2]: http://lxc.sourceforge.net/
