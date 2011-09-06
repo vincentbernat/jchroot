@@ -190,8 +190,12 @@ static int step2(void *arg) {
 	free(mntdata);
 	return EXIT_FAILURE;
       }
-      if (mount(mntent->mnt_fsname, path, mntent->mnt_type,
-		mntflags, mntdata)) {
+      if ((mount(mntent->mnt_fsname, path, mntent->mnt_type,
+		 mntflags & ~MS_REMOUNT, mntdata)) ||
+	  /* With MS_BIND, we need to remount to enable some options like "ro" */
+	  (((mntflags & MS_REMOUNT) || (mntflags & MS_BIND)) &&
+	   (mount(mntent->mnt_fsname, path, mntent->mnt_type,
+		  mntflags | MS_REMOUNT, mntdata)))) {
 	fprintf(stderr, "unable to mount '%s' on '%s': %m\n",
 		mntent->mnt_fsname, mntent->mnt_dir);
 	free(mntdata);
