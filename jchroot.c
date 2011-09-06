@@ -23,6 +23,7 @@
 #include <getopt.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
 #include <alloca.h>
 #include <errno.h>
 #include <sched.h>
@@ -303,6 +304,12 @@ int main(int argc, char * argv[]) {
   config.target = argv[optind++];
   if (optind == argc) usage();
   config.command = argv + optind;
+
+  struct stat st;
+  if (stat(config.target, &st) || !S_ISDIR(st.st_mode)) {
+    fprintf(stderr, "'%s' is not a directory\n", config.target);
+    return EXIT_FAILURE;
+  }
   
-  exit(step1(&config));
+  return step1(&config);
 }
