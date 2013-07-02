@@ -32,7 +32,8 @@ See also [schroot][1] and [lxc][2]. `schroot` is not yet able to do
 this, but this is planned. See [bug #637870][3]. `lxc` should be able
 to do this but seems targeted at more complex situations... If you use
 systemd, look at `nspawn` or `systemd-nspawn` which does almost the
-same thing than jchroot.
+same thing than jchroot. You could also use `unshare` (with `chroot`)
+from `util-linux` package.
  
 [1]: http://packages.qa.debian.org/s/schroot.html
 [2]: http://lxc.sourceforge.net/
