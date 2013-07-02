@@ -33,6 +33,7 @@
 #include <sys/mount.h>
 
 struct config {
+  int   userns;
   uid_t user;
   gid_t group;
   char *fstab;
@@ -47,6 +48,7 @@ static void usage() {
 	  "Usage: %s [OPTIONS] TARGET [--] COMMAND\n"
 	  "\n"
 	  "Available options:\n"
+          "  -U                         Use a new user namespace\n"
 	  "  -u USER  | --user=USER     Specify user to use after chroot\n"
 	  "  -g USER  | --group=USER    Specify group to use after chroot\n"
 	  "  -f FSTAB | --fstab=FSTAB   Specify a fstab(5) file\n"
@@ -218,6 +220,7 @@ static int step1(struct config *config) {
   int flags = CLONE_NEWPID | CLONE_NEWIPC | CLONE_NEWNS;
 
   if (config->hostname) flags |= CLONE_NEWUTS;
+  if (config->userns) flags |= CLONE_NEWUSER;
   pid = clone(step2,
 	      stack,
 	      SIGCHLD | flags | CLONE_FILES,
@@ -250,11 +253,14 @@ int main(int argc, char * argv[]) {
       { 0,          0,                 0, 0   }
     };
 
-    c = getopt_long(argc, argv, "hu:g:f:n:",
+    c = getopt_long(argc, argv, "hUu:g:f:n:",
 		    long_options, &option_index);
     if (c == -1) break;
 
     switch (c) {
+    case 'U':
+      config.userns = 1;
+      break;
     case 'u':
       if (!optarg) usage();
 
