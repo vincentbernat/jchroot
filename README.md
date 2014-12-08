@@ -43,3 +43,9 @@ Installation & use
 ------------------
  
 Just use `make` to get `jchroot`. Then `jchroot --help` to get help.
+
+Related projects
+----------------
+
+[ChrootX](https://github.com/Spiritdude/ChrootX) is a wrapper around
+`chroot`/`jchroot`.
