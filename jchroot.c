@@ -34,6 +34,7 @@
 
 struct config {
   int   userns;
+  int   netns;
   uid_t user;
   gid_t group;
   char *fstab;
@@ -49,6 +50,7 @@ static void usage() {
 	  "\n"
 	  "Available options:\n"
           "  -U                         Use a new user namespace\n"
+          "  -N                         Use a new network namespace\n"
 	  "  -u USER  | --user=USER     Specify user to use after chroot\n"
 	  "  -g USER  | --group=USER    Specify group to use after chroot\n"
 	  "  -f FSTAB | --fstab=FSTAB   Specify a fstab(5) file\n"
@@ -221,6 +223,7 @@ static int step1(struct config *config) {
 
   if (config->hostname) flags |= CLONE_NEWUTS;
   if (config->userns) flags |= CLONE_NEWUSER;
+  if (config->netns) flags |= CLONE_NEWNET;
   pid = clone(step2,
 	      stack,
 	      SIGCHLD | flags | CLONE_FILES,
@@ -253,13 +256,16 @@ int main(int argc, char * argv[]) {
       { 0,          0,                 0, 0   }
     };
 
-    c = getopt_long(argc, argv, "hUu:g:f:n:",
+    c = getopt_long(argc, argv, "hNUu:g:f:n:",
 		    long_options, &option_index);
     if (c == -1) break;
 
     switch (c) {
     case 'U':
       config.userns = 1;
+      break;
+    case 'N':
+      config.netns = 1;
       break;
     case 'u':
       if (!optarg) usage();
