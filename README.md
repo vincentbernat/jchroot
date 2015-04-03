@@ -39,6 +39,17 @@ from `util-linux` package.
 [2]: http://lxc.sourceforge.net/
 [3]: http://bugs.debian.org/637870
 
+Security note
+-------------
+
+It should be noted that a privileged process inside jchroot may be
+able to escape unless its privileges are reduced. For example, it
+could fiddle with `/dev/kmem` or mount any filesystem after creating
+the appropriate node.
+
+If you seek a complex isolation, you are better off with [lxc][2]
+which bundles many security mechanisms.
+
 Installation & use
 ------------------
  
