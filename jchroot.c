@@ -31,6 +31,7 @@
 #include <grp.h>
 #include <mntent.h>
 #include <sys/mount.h>
+#include <sys/syscall.h>
 
 struct config {
   int   userns;
@@ -88,14 +89,51 @@ static int step5(struct config *config) {
   return step6(config);
 }
 
-/* Step 4: Chroot */
+/* Step 4: Chroot with pivot_root */
 static int step4(struct config *config) {
-  if (chroot(config->target)) {
-    fprintf(stderr, "unable to chroot to %s: %m\n", config->target);
+  char *template = NULL;
+  if (mount("", "/", "", MS_PRIVATE | MS_REC, "") == -1) {
+    fprintf(stderr, "unable to make current root private: %m\n");
+    return EXIT_FAILURE;
+  }
+  if (mount(config->target, config->target, "bind", MS_BIND|MS_REC, "") == -1) {
+    fprintf(stderr, "unable to turn new root into mountpoint: %m\n");
+    return EXIT_FAILURE;
+  }
+  if (asprintf(&template, "%s/tmp/.pivotrootXXXXXX", config->target) == -1) {
+    fprintf(stderr, "unable to allocate template directory: %m\n");
+    return EXIT_FAILURE;
+  }
+  if (mkdtemp(template) == NULL) {
+    fprintf(stderr, "unable to create temporary directory for pivot root: %m\n");
+    free(template);
+    return EXIT_FAILURE;
+  }
+  if (syscall(__NR_pivot_root, config->target, template) == -1) {
+    fprintf(stderr, "unable to pivot root to %s: %m\n", config->target);
+    rmdir(template);
+    free(template);
     return EXIT_FAILURE;
   }
   if (chdir("/")) {
     fprintf(stderr, "unable to go into chroot: %m\n");
+    /* We should cleanup the mount and the temporary directory, but we
+     * have pivoted and we won't are likely to still use the old
+     * mount... */
+    free(template);
+    return EXIT_FAILURE;
+  }
+  template += strlen(config->target);
+  if (umount2(template, MNT_DETACH) == -1) {
+    fprintf(stderr, "unable to umount old root: %m\n");
+    /* Again, cannot really clean... */
+    free(template);
+    return EXIT_FAILURE;
+  }
+  if (rmdir(template) == -1) {
+    fprintf(stderr, "unable to remove directory for old root: %m\n");
+    /* ... */
+    free(template);
     return EXIT_FAILURE;
   }
   return step5(config);
