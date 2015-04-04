@@ -79,8 +79,12 @@ static int step5(struct config *config) {
     return EXIT_FAILURE;
   }
   if (setgroups(0, NULL)) {
-    fprintf(stderr, "unable to drop additional groups: %m\n");
-    return EXIT_FAILURE;
+    /* This may fail on some recent kernels. See
+     * https://lwn.net/Articles/626665/ for the rationale. */
+    if (!config->userns) {
+      fprintf(stderr, "unable to drop additional groups: %m\n");
+      return EXIT_FAILURE;
+    }
   }
   if (config->user != (uid_t) -1 && setuid(config->user)) {
     fprintf(stderr, "unable to change to UID %d: %m\n", config->user);
