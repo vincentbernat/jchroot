@@ -24,6 +24,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
+#include <fcntl.h>
 #include <alloca.h>
 #include <errno.h>
 #include <sched.h>
@@ -33,7 +34,12 @@
 #include <sys/mount.h>
 #include <sys/syscall.h>
 
+#ifndef PATH_MAX
+# define PATH_MAX 4096
+#endif
+
 struct config {
+  int   pipe_fd[2];
   int   userns;
   int   netns;
   uid_t user;
@@ -42,6 +48,8 @@ struct config {
   char *hostname;
   char *target;
   char *const *command;
+  const char *uid_map;
+  const char *gid_map;
 };
 
 const char *progname;
@@ -55,13 +63,15 @@ static void usage() {
 	  "  -u USER  | --user=USER     Specify user to use after chroot\n"
 	  "  -g USER  | --group=USER    Specify group to use after chroot\n"
 	  "  -f FSTAB | --fstab=FSTAB   Specify a fstab(5) file\n"
-	  "  -n NAME  | --hostname=NAME Specify a hostname\n",
+	  "  -n NAME  | --hostname=NAME Specify a hostname\n"
+          "  -M MAP   | --uid-map=MAP   Comma-separated list of UID mappings\n"
+          "  -G MAP   | --gid-map=MAP   Comma-separated list of GID mappings\n",
 	  progname);
   exit(EXIT_FAILURE);
 }
 
-/* Step 6: Execute command */
-static int step6(struct config *config) {
+/* Step 7: Execute command */
+static int step7(struct config *config) {
   if (execvp(config->command[0], config->command) == -1) {
     int i = 1;
     fprintf(stderr, "unable to execute '%s", config->command[0]);
@@ -72,8 +82,8 @@ static int step6(struct config *config) {
   return 0; /* No real return... */
 }
 
-/* Step 5: Drop privileges */
-static int step5(struct config *config) {
+/* Step 6: Drop (or increase) privileges */
+static int step6(struct config *config) {
   if (config->group != (gid_t) -1 && setgid(config->group)) {
     fprintf(stderr, "unable to change to GID %d: %m\n", config->group);
     return EXIT_FAILURE;
@@ -90,11 +100,11 @@ static int step5(struct config *config) {
     fprintf(stderr, "unable to change to UID %d: %m\n", config->user);
     return EXIT_FAILURE;
   }
-  return step6(config);
+  return step7(config);
 }
 
-/* Step 4: Chroot with pivot_root */
-static int step4(struct config *config) {
+/* Step 5: Chroot with pivot_root */
+static int step5(struct config *config) {
   char *template = NULL;
   if (mount("", "/", "", MS_PRIVATE | MS_REC, "") == -1) {
     fprintf(stderr, "unable to make current root private: %m\n");
@@ -140,17 +150,17 @@ static int step4(struct config *config) {
     free(template);
     return EXIT_FAILURE;
   }
-  return step5(config);
+  return step6(config);
 }
 
-/* Step 3: Set hostname */
-static int step3(struct config *config) {
+/* Step 4: Set hostname */
+static int step4(struct config *config) {
   if (config->hostname &&
       sethostname(config->hostname, strlen(config->hostname))) {
     fprintf(stderr, "unable to change hostname to '%s': %m\n",
 	    config->hostname);
   }
-  return step4(config);
+  return step5(config);
 }
 
 struct mount_opt {
@@ -179,9 +189,17 @@ static struct mount_opt mount_opt[] = {
   { NULL,         0, 0              },
 };
 
-/* Step 2: Mount anything needed */
-static int step2(void *arg) {
+/* Step 3: Mount anything needed */
+static int step3(void *arg) {
   struct config *config = arg;
+
+  /* First, wait for the parent to be ready */
+  char ch;
+  if (read(config->pipe_fd[0], &ch, 1) != 0) {
+    fprintf(stderr, "unable to synchronize with parent: %m\n");
+    return EXIT_FAILURE;
+  }
+
   if (config->fstab) {
     struct mntent *mntent;
     char path[256];
@@ -251,7 +269,46 @@ static int step2(void *arg) {
       free(mntdata);
     }
   }
-  return step3(config);
+  return step4(config);
+}
+
+static void step2_update_map(const char *map, char *map_file) {
+  int fd, j;
+  ssize_t map_len;
+  char *mapping = strdup(map);
+
+  map_len = strlen(mapping);
+  for (j = 0; j < map_len; j++)
+    if (mapping[j] == ',')
+      mapping[j] = '\n';
+
+  fd = open(map_file, O_RDWR);
+  if (fd == -1) {
+    fprintf(stderr, "unable to open %s: %m\n", map_file);
+    exit(EXIT_FAILURE);
+  }
+
+  if (write(fd, mapping, map_len) != map_len) {
+    fprintf(stderr, "unable to write to %s: %m\n", map_file);
+    exit(EXIT_FAILURE);
+  }
+
+  close(fd);
+  free(mapping);
+}
+
+/* Step 2: setup user mappings */
+static void step2(struct config *config, pid_t pid) {
+  char map_path[PATH_MAX];
+  if (config->uid_map != NULL) {
+    snprintf(map_path, PATH_MAX, "/proc/%ld/uid_map", (long) pid);
+    step2_update_map(config->uid_map, map_path);
+  }
+  if (config->gid_map != NULL) {
+    snprintf(map_path, PATH_MAX, "/proc/%ld/gid_map", (long) pid);
+    step2_update_map(config->gid_map, map_path);
+  }
+  close(config->pipe_fd[1]);     /* Sync with child */
 }
 
 /* Step 1: create a new PID/IPC/NS/UTS namespace */
@@ -263,10 +320,15 @@ static int step1(struct config *config) {
   void *stack = alloca(stack_size) + stack_size;
   int flags = CLONE_NEWPID | CLONE_NEWIPC | CLONE_NEWNS;
 
+  if (pipe(config->pipe_fd) == -1) {
+    fprintf(stderr, "failed to create a pipe: %m\n");
+    return EXIT_FAILURE;
+  }
+
   if (config->hostname) flags |= CLONE_NEWUTS;
   if (config->userns) flags |= CLONE_NEWUSER;
   if (config->netns) flags |= CLONE_NEWNET;
-  pid = clone(step2,
+  pid = clone(step3,
 	      stack,
 	      SIGCHLD | flags | CLONE_FILES,
 	      config);
@@ -274,6 +336,8 @@ static int step1(struct config *config) {
     fprintf(stderr, "failed to clone: %m\n");
     return EXIT_FAILURE;
   }
+
+  step2(config, pid);
 
   while (waitpid(pid, &ret, 0) < 0 && errno == EINTR)
     continue;
@@ -294,17 +358,25 @@ int main(int argc, char * argv[]) {
       { "group",    required_argument, 0, 'g' },
       { "fstab",    required_argument, 0, 'f' },
       { "hostname", required_argument, 0, 'n' },
+      { "uid-map",  required_argument, 0, 'M' },
+      { "gid-map",  required_argument, 0, 'G' },
       { "help",     no_argument,       0, 'h' },
       { 0,          0,                 0, 0   }
     };
 
-    c = getopt_long(argc, argv, "hNUu:g:f:n:",
+    c = getopt_long(argc, argv, "hNUu:g:f:n:M:G:",
 		    long_options, &option_index);
     if (c == -1) break;
 
     switch (c) {
     case 'U':
       config.userns = 1;
+      break;
+    case 'M':
+      config.uid_map = optarg;
+      break;
+    case 'G':
+      config.gid_map = optarg;
       break;
     case 'N':
       config.netns = 1;
@@ -354,6 +426,12 @@ int main(int argc, char * argv[]) {
     }
   }
 
+  if (!config.userns &&
+      (config.uid_map != NULL || config.gid_map != NULL)) {
+    fprintf(stderr, "cannot use UID/GID mapping without a user namespace\n");
+    usage();
+  }
+
   if (optind == argc) usage();
   config.target = argv[optind++];
   if (optind == argc) usage();
@@ -364,6 +442,6 @@ int main(int argc, char * argv[]) {
     fprintf(stderr, "'%s' is not a directory\n", config.target);
     return EXIT_FAILURE;
   }
-  
+
   return step1(&config);
 }

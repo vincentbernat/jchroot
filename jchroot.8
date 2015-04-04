@@ -27,6 +27,8 @@
 .Op Fl g Ar group
 .Op Fl f Ar fstab
 .Op Fl n Ar hostname
+.Op Fl M Ar map
+.Op Fl G Ar map
 .Ar target
 .Op --
 .Ar command
@@ -62,6 +64,19 @@ Switch to a new user namespace. It allows
 .Nm
 to be run without being root. It requires a recent kernel (3.8+) with
 support for user namespace.
+.It Fl M Ar mapping
+Use the provided user-mapping in the new user namespace. This option
+should not be used without The
+.Fl U
+option. The mapping is explained in
+.Xr user_namespaces 7
+manual page. A mapping is a record with the ID range start inside the
+namespace, the ID range start outside the namespace and the length of
+the range.
+.It Fl G Ar mapping
+Use the provided group-mapping in the new user namespace. See
+.Fl M
+for more information.
 .It Fl u , -user Ar user
 Specify user to use after chrooting. This can be specified as a user
 name or an UID. In case of a user name, the primary group of the user

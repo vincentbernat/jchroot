@@ -17,6 +17,7 @@ automatically.
 
 This is what jchroot does:
 
+ 0. Setup user/group mappings.
  1. provide a new PID/IPC/mount/UTS namespace
  2. mount anything you want
  3. set hostname if needed
@@ -49,6 +50,11 @@ the appropriate node.
 
 If you seek a complex isolation, you are better off with [lxc][2]
 which bundles many security mechanisms.
+
+You may want to use user namespaces to increase the security of the
+chroot:
+
+    ./jchroot -U -u 0 -g 0 -M "0 $(id -u) 1" -G "0 $(id -g) 1" /path/to/chroot cmd
 
 Installation & use
 ------------------
