@@ -63,11 +63,11 @@ Switch to a new user namespace. It allows
 to be run without being root. It requires a recent kernel (3.8+) with
 support for user namespace.
 .It Fl u , -user Ar user
-Specify user to use before chrooting. This can be specified as a user
+Specify user to use after chrooting. This can be specified as a user
 name or an UID. In case of a user name, the primary group of the user
 is also used unless another group is specified.
 .It Fl g , -group Ar group
-Specify primary group to use before chrooting. This can be specified
+Specify primary group to use after chrooting. This can be specified
 as a group name or a GID.
 .It Fl f , -fstab Ar fstab
 Specify a file location in the
