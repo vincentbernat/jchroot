@@ -101,10 +101,11 @@ static int step6(struct config *config) {
     fprintf(stderr, "unable to change to UID %d: %m\n", config->user);
     return EXIT_FAILURE;
   }
-  if ((config->group != (gid_t) -1 || config->user != (uid_t) -1) && prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)) {
-    fprintf(stderr, "unable to disable new privs");
-    return EXIT_FAILURE;
+  #ifdef PR_SET_NO_NEW_PRIVS
+  if (config->group != (gid_t) -1 || config->user != (uid_t) -1) {
+    prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0);
   }
+  #endif
   return step7(config);
 }
 
