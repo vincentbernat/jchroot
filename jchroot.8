@@ -29,6 +29,7 @@
 .Op Fl n Ar hostname
 .Op Fl M Ar map
 .Op Fl G Ar map
+.Op Fl v Ar name=value
 .Ar target
 .Op --
 .Ar command
@@ -101,6 +102,8 @@ sys      /sys   sysfs   defaults                  0  0
 .Ed
 .It Fl n , -hostname Ar name
 Specify a hostname for the chroot. This enables UTS namespace.
+.It Fl v Ar name=value
+Set an environment variable. This option can be specified more than once.
 .It Fl h
 Get help.
 .El

@@ -370,7 +370,7 @@ int main(int argc, char * argv[]) {
       { 0,          0,                 0, 0   }
     };
 
-    c = getopt_long(argc, argv, "hNUu:g:f:n:M:G:",
+    c = getopt_long(argc, argv, "hNUu:g:f:n:M:G:v:",
 		    long_options, &option_index);
     if (c == -1) break;
 
@@ -426,6 +426,13 @@ int main(int argc, char * argv[]) {
     case 'n':
       if (!optarg) usage();
       config.hostname = optarg;
+      break;
+    case 'v':
+      if (!optarg) usage();
+      if (putenv(optarg) != 0) {
+	fprintf(stderr, "failed to set environment variable: %s\n", optarg);
+	usage();
+      }
       break;
     default:
       usage();
