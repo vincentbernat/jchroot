@@ -66,7 +66,8 @@ static void usage() {
 	  "  -f FSTAB | --fstab=FSTAB   Specify a fstab(5) file\n"
 	  "  -n NAME  | --hostname=NAME Specify a hostname\n"
           "  -M MAP   | --uid-map=MAP   Comma-separated list of UID mappings\n"
-          "  -G MAP   | --gid-map=MAP   Comma-separated list of GID mappings\n",
+          "  -G MAP   | --gid-map=MAP   Comma-separated list of GID mappings\n"
+	  "  -e NAME=VALUE              Set an environment variable\n",
 	  progname);
   exit(EXIT_FAILURE);
 }
@@ -370,7 +371,7 @@ int main(int argc, char * argv[]) {
       { 0,          0,                 0, 0   }
     };
 
-    c = getopt_long(argc, argv, "hNUu:g:f:n:M:G:",
+    c = getopt_long(argc, argv, "hNUu:g:f:n:M:G:e:",
 		    long_options, &option_index);
     if (c == -1) break;
 
@@ -426,6 +427,13 @@ int main(int argc, char * argv[]) {
     case 'n':
       if (!optarg) usage();
       config.hostname = optarg;
+      break;
+    case 'e':
+      if (!optarg) usage();
+      if (putenv(optarg) != 0) {
+	fprintf(stderr, "failed to set environment variable: %s\n", optarg);
+	usage();
+      }
       break;
     default:
       usage();
