@@ -206,6 +206,11 @@ static int step3(void *arg) {
     fprintf(stderr, "unable to synchronize with parent: %m\n");
     return EXIT_FAILURE;
   }
+  
+  close(config->pipe_fd[0]);
+  /* Make sure we have no handles shared with parent anymore,
+   * these might be used to break out of the chroot */
+  unshare(CLONE_FILES);
 
   if (config->fstab) {
     struct mntent *mntent;
