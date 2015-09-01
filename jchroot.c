@@ -113,6 +113,7 @@ static int step6(struct config *config) {
 /* Step 5: Chroot with pivot_root */
 static int step5(struct config *config) {
   char *template = NULL;
+  char *template_new = NULL;
   if (mount("", "/", "", MS_PRIVATE | MS_REC, "") == -1) {
     fprintf(stderr, "unable to make current root private: %m\n");
     return EXIT_FAILURE;
@@ -144,14 +145,15 @@ static int step5(struct config *config) {
     free(template);
     return EXIT_FAILURE;
   }
-  template += strlen(config->target);
-  if (umount2(template, MNT_DETACH) == -1) {
+  template_new = template;
+  template_new += strlen(config->target);
+  if (umount2(template_new, MNT_DETACH) == -1) {
     fprintf(stderr, "unable to umount old root: %m\n");
     /* Again, cannot really clean... */
     free(template);
     return EXIT_FAILURE;
   }
-  if (rmdir(template) == -1) {
+  if (rmdir(template_new) == -1) {
     fprintf(stderr, "unable to remove directory for old root: %m\n");
     /* ... */
     free(template);
