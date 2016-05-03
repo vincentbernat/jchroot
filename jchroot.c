@@ -51,6 +51,7 @@ struct config {
   char *const *command;
   const char *uid_map;
   const char *gid_map;
+  const char *pid_file;
 };
 
 const char *progname;
@@ -67,6 +68,7 @@ static void usage() {
 	  "  -n NAME  | --hostname=NAME Specify a hostname\n"
           "  -M MAP   | --uid-map=MAP   Comma-separated list of UID mappings\n"
           "  -G MAP   | --gid-map=MAP   Comma-separated list of GID mappings\n"
+	  "  -p FILE  | --pidfile=FILE  Write PID of child process to file\n"
 	  "  -e NAME=VALUE              Set an environment variable\n",
 	  progname);
   exit(EXIT_FAILURE);
@@ -208,7 +210,7 @@ static int step3(void *arg) {
     fprintf(stderr, "unable to synchronize with parent: %m\n");
     return EXIT_FAILURE;
   }
-  
+
   close(config->pipe_fd[0]);
   /* Make sure we have no handles shared with parent anymore,
    * these might be used to break out of the chroot */
@@ -339,6 +341,17 @@ static int step1(struct config *config) {
     return EXIT_FAILURE;
   }
 
+  FILE *pid_file;
+
+  if (config->pid_file) {
+    pid_file = fopen(config->pid_file, "w");
+    if (pid_file == NULL) {
+      fprintf(stderr, "failed to open pid file %s for writing: %m\n",
+	      config->pid_file);
+      return EXIT_FAILURE;
+    }
+  }
+
   if (config->hostname) flags |= CLONE_NEWUTS;
   if (config->userns) flags |= CLONE_NEWUSER;
   if (config->netns) flags |= CLONE_NEWNET;
@@ -348,7 +361,18 @@ static int step1(struct config *config) {
 	      config);
   if (pid < 0) {
     fprintf(stderr, "failed to clone: %m\n");
+    if (config->pid_file) fclose(pid_file);
     return EXIT_FAILURE;
+  }
+
+  if (config->pid_file) {
+    if (fprintf(pid_file, "%u", pid) < 0) {
+      fprintf(stderr, "failed to write PID (%u) to file %s: %m\n",
+	      pid, config->pid_file);
+      fclose(pid_file);
+      return EXIT_FAILURE;
+    }
+    fclose(pid_file);
   }
 
   step2(config, pid);
@@ -374,11 +398,12 @@ int main(int argc, char * argv[]) {
       { "hostname", required_argument, 0, 'n' },
       { "uid-map",  required_argument, 0, 'M' },
       { "gid-map",  required_argument, 0, 'G' },
+      { "pidfile",  required_argument, 0, 'p' },
       { "help",     no_argument,       0, 'h' },
       { 0,          0,                 0, 0   }
     };
 
-    c = getopt_long(argc, argv, "hNUu:g:f:n:M:G:e:",
+    c = getopt_long(argc, argv, "hNUu:g:f:n:M:G:p:e:",
 		    long_options, &option_index);
     if (c == -1) break;
 
@@ -441,6 +466,10 @@ int main(int argc, char * argv[]) {
 	fprintf(stderr, "failed to set environment variable: %s\n", optarg);
 	usage();
       }
+      break;
+    case 'p':
+      if (!optarg) usage();
+      config.pid_file = optarg;
       break;
     default:
       usage();
