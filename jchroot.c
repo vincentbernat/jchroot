@@ -60,16 +60,16 @@ static void usage() {
 	  "Usage: %s [OPTIONS] TARGET [--] COMMAND\n"
 	  "\n"
 	  "Available options:\n"
-          "  -U                         Use a new user namespace\n"
-          "  -N                         Use a new network namespace\n"
-	  "  -u USER  | --user=USER     Specify user to use after chroot\n"
-	  "  -g USER  | --group=USER    Specify group to use after chroot\n"
-	  "  -f FSTAB | --fstab=FSTAB   Specify a fstab(5) file\n"
-	  "  -n NAME  | --hostname=NAME Specify a hostname\n"
-          "  -M MAP   | --uid-map=MAP   Comma-separated list of UID mappings\n"
-          "  -G MAP   | --gid-map=MAP   Comma-separated list of GID mappings\n"
-	  "  -p FILE  | --pidfile=FILE  Write PID of child process to file\n"
-	  "  -e NAME=VALUE              Set an environment variable\n",
+	  "  -U       | --new-user-ns     Use a new user namespace\n"
+	  "  -N       | --new-network-ns  Use a new network namespace\n"
+	  "  -u USER  | --user=USER       Specify user to use after chroot\n"
+	  "  -g USER  | --group=USER      Specify group to use after chroot\n"
+	  "  -f FSTAB | --fstab=FSTAB     Specify a fstab(5) file\n"
+	  "  -n NAME  | --hostname=NAME   Specify a hostname\n"
+	  "  -M MAP   | --uid-map=MAP     Comma-separated list of UID mappings\n"
+	  "  -G MAP   | --gid-map=MAP     Comma-separated list of GID mappings\n"
+	  "  -p FILE  | --pidfile=FILE    Write PID of child process to file\n"
+	  "  -e N=V   | --env=NAME=VALUE  Set an environment variable\n",
 	  progname);
   exit(EXIT_FAILURE);
 }
@@ -392,15 +392,18 @@ int main(int argc, char * argv[]) {
   while (1) {
     int option_index = 0;
     static struct option long_options[] = {
-      { "user",     required_argument, 0, 'u' },
-      { "group",    required_argument, 0, 'g' },
-      { "fstab",    required_argument, 0, 'f' },
-      { "hostname", required_argument, 0, 'n' },
-      { "uid-map",  required_argument, 0, 'M' },
-      { "gid-map",  required_argument, 0, 'G' },
-      { "pidfile",  required_argument, 0, 'p' },
-      { "help",     no_argument,       0, 'h' },
-      { 0,          0,                 0, 0   }
+      { "new-user-ns",    no_argument,       0, 'U' },
+      { "new-network-ns", no_argument,       0, 'N' },
+      { "user",           required_argument, 0, 'u' },
+      { "group",          required_argument, 0, 'g' },
+      { "fstab",          required_argument, 0, 'f' },
+      { "hostname",       required_argument, 0, 'n' },
+      { "uid-map",        required_argument, 0, 'M' },
+      { "gid-map",        required_argument, 0, 'G' },
+      { "pidfile",        required_argument, 0, 'p' },
+      { "env",            required_argument, 0, 'e' },
+      { "help",           no_argument,       0, 'h' },
+      { 0,                0,                 0, 0   }
     };
 
     c = getopt_long(argc, argv, "hNUu:g:f:n:M:G:p:e:",

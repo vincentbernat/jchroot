@@ -57,11 +57,11 @@ can be run safely from the chroot: they will be killed on exit.
 .Pp
 The options are as follows:
 .Bl -tag -width Ds
-.It Fl N
+.It Fl N , -new-network-ns
 Switch to a new network namespace. The program will be run in a fresh
 network namespace. Unless additional actions are taken, this means
 that the program won't get any network access.
-.It Fl U
+.It Fl U , -new-user-ns
 Switch to a new user namespace. It allows
 .Nm
 to be run without being root. It requires a recent kernel (3.8+) with
