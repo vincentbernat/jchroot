@@ -20,17 +20,17 @@
 .Nd chroot with more isolation
 .Sh SYNOPSIS
 .Nm
-.Op Fl h
-.Op Fl U
-.Op Fl N
-.Op Fl u Ar user
-.Op Fl g Ar group
-.Op Fl f Ar fstab
-.Op Fl n Ar hostname
-.Op Fl M Ar map
-.Op Fl G Ar map
-.Op Fl p Ar pidfile
-.Op Fl e Ar name=value
+.Op Fl h | Fl -help
+.Op Fl U | Fl -new-user-ns
+.Op Fl N | Fl -new-network-ns
+.Op Fl u | Fl -user Ar user
+.Op Fl g | Fl -group Ar group
+.Op Fl f | Fl -fstab Ar fstab
+.Op Fl n | Fl -hostname Ar hostname
+.Op Fl M | Fl -uid-map Ar map
+.Op Fl G | Fl -gid-map Ar map
+.Op Fl p | Fl -pidfile Ar pidfile
+.Op Fl e | Fl -env Ar name=value
 .Ar target
 .Op --
 .Ar command
@@ -57,16 +57,16 @@ can be run safely from the chroot: they will be killed on exit.
 .Pp
 The options are as follows:
 .Bl -tag -width Ds
-.It Fl N , -new-network-ns
+.It Fl N | Fl -new-network-ns
 Switch to a new network namespace. The program will be run in a fresh
 network namespace. Unless additional actions are taken, this means
 that the program won't get any network access.
-.It Fl U , -new-user-ns
+.It Fl U | Fl -new-user-ns
 Switch to a new user namespace. It allows
 .Nm
 to be run without being root. It requires a recent kernel (3.8+) with
 support for user namespace.
-.It Fl M Ar mapping
+.It Fl M | Fl -uid-map Ar mapping
 Use the provided user-mapping in the new user namespace. This option
 should not be used without The
 .Fl U
@@ -75,18 +75,18 @@ option. The mapping is explained in
 manual page. A mapping is a record with the ID range start inside the
 namespace, the ID range start outside the namespace and the length of
 the range.
-.It Fl G Ar mapping
+.It Fl G | Fl -gid-map Ar mapping
 Use the provided group-mapping in the new user namespace. See
 .Fl M
 for more information.
-.It Fl u , -user Ar user
+.It Fl u | Fl -user Ar user
 Specify user to use after chrooting. This can be specified as a user
 name or an UID. In case of a user name, the primary group of the user
 is also used unless another group is specified.
-.It Fl g , -group Ar group
+.It Fl g | Fl -group Ar group
 Specify primary group to use after chrooting. This can be specified
 as a group name or a GID.
-.It Fl f , -fstab Ar fstab
+.It Fl f | Fl -fstab Ar fstab
 Specify a file location in the
 .Xr fstab 5
 format containing mount points relative to
@@ -101,13 +101,13 @@ sys      /sys   sysfs   defaults                  0  0
 
 /etc/resolv.conf /etc/resolv.conf none bind,ro    0  0
 .Ed
-.It Fl n , -hostname Ar name
+.It Fl n | Fl -hostname Ar name
 Specify a hostname for the chroot. This enables UTS namespace.
-.It Fl p , -pidfile Ar file
+.It Fl p | Fl -pidfile Ar file
 Write PID of child process to file.
-.It Fl e Ar name=value
+.It Fl e | Fl -env Ar name=value
 Set an environment variable. This option can be specified more than once.
-.It Fl h
+.It Fl h | Fl -help
 Get help.
 .El
 .Sh SEE ALSO
