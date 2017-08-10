@@ -52,6 +52,7 @@ struct config {
   const char *uid_map;
   const char *gid_map;
   const char *pid_file;
+  const char *chdir_to;
 };
 
 const char *progname;
@@ -69,13 +70,18 @@ static void usage() {
 	  "  -M MAP   | --uid-map=MAP     Comma-separated list of UID mappings\n"
 	  "  -G MAP   | --gid-map=MAP     Comma-separated list of GID mappings\n"
 	  "  -p FILE  | --pidfile=FILE    Write PID of child process to file\n"
-	  "  -e N=V   | --env=NAME=VALUE  Set an environment variable\n",
+	  "  -e N=V   | --env=NAME=VALUE  Set an environment variable\n"
+	  "  -c DIR   | --chdir=DIR       Change directory inside the chroot\n",
 	  progname);
   exit(EXIT_FAILURE);
 }
 
 /* Step 7: Execute command */
 static int step7(struct config *config) {
+  if (config->chdir_to != NULL && chdir(config->chdir_to)) {
+    fprintf(stderr, "unable to change directory: %m\n");
+    return EXIT_FAILURE;
+  }
   if (execvp(config->command[0], config->command) == -1) {
     int i = 1;
     fprintf(stderr, "unable to execute '%s", config->command[0]);
@@ -402,11 +408,12 @@ int main(int argc, char * argv[]) {
       { "gid-map",        required_argument, 0, 'G' },
       { "pidfile",        required_argument, 0, 'p' },
       { "env",            required_argument, 0, 'e' },
+      { "chdir",          required_argument, 0, 'c' },
       { "help",           no_argument,       0, 'h' },
       { 0,                0,                 0, 0   }
     };
 
-    c = getopt_long(argc, argv, "hNUu:g:f:n:M:G:p:e:",
+    c = getopt_long(argc, argv, "hNUu:g:f:n:M:G:p:e:c:",
 		    long_options, &option_index);
     if (c == -1) break;
 
@@ -469,6 +476,10 @@ int main(int argc, char * argv[]) {
 	fprintf(stderr, "failed to set environment variable: %s\n", optarg);
 	usage();
       }
+      break;
+    case 'c':
+      if (!optarg) usage();
+      config.chdir_to = optarg;
       break;
     case 'p':
       if (!optarg) usage();
