@@ -31,6 +31,7 @@
 .Op Fl G | Fl -gid-map Ar map
 .Op Fl p | Fl -pidfile Ar pidfile
 .Op Fl e | Fl -env Ar name=value
+.Op Fl c | Fl -chdir Ar directory
 .Ar target
 .Op --
 .Ar command
@@ -107,6 +108,8 @@ Specify a hostname for the chroot. This enables UTS namespace.
 Write PID of child process to file.
 .It Fl e | Fl -env Ar name=value
 Set an environment variable. This option can be specified more than once.
+.It Fl c | Fl -chdir Ar directory
+Change to the specified directory after entering the chroot.
 .It Fl h | Fl -help
 Get help.
 .El
