@@ -1,0 +1,43 @@
+#!/usr/bin/make -f
+
+DEBVERS := $(shell dpkg-parsechangelog | sed -n -e 's/^Version: //p')
+VERSION := $(shell echo '$(DEBVERS)' | sed -e 's/^[[:digit:]]*://' -e 's/[~-].*//')
+
+build:
+	make jchroot
+
+clean:
+	dh_testdir
+	dh_testroot
+	dh_auto_clean
+	dh_clean
+
+install: build
+	dh_testdir
+	dh_testroot
+	dh_prep
+	dh_installdirs
+
+	# Move relevant files into place
+	install -m755 $(CURDIR)/jchroot $(CURDIR)/debian/jchroot/usr/sbin/
+	gzip -n -9 <$(CURDIR)/jchroot.8 >$(CURDIR)/debian/jchroot/usr/share/man/man8/jchroot.8.gz
+
+binary-indep: build install
+
+binary-arch: build install
+	dh_testdir
+	dh_testroot
+	dh_installchangelogs
+	dh_installdocs
+	dh_install
+	dh_strip
+	dh_compress
+	dh_fixperms
+	dh_installdeb
+	dh_gencontrol
+	dh_md5sums
+	dh_builddeb
+
+
+binary: binary-indep binary-arch
+.PHONY: build clean binary-indep binary-arch binary install

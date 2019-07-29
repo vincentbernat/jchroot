@@ -1,0 +1,5 @@
+jchroot (1.0+git~3ad09cca-1) stable; urgency=medium
+
+  * Initial package, based on git commit 3ad09cca4879c27f7eef657b7fa1dd8b4f6aa47b
+
+ -- Your Name Here <Your Email Here>  Mon, 29 Jul 2019 09:53:45 +0200
