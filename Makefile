@@ -8,7 +8,7 @@ jchroot: jchroot.o
 	$(CC) -o $@ $^ $(LDFLAGS)
 
 clean:
-	rm *.o $(EXEC)
+	rm -f *.o $(EXEC)
 
 
 .PHONY: clean
