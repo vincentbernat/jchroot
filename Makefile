@@ -1,4 +1,4 @@
-CFLAGS=-Werror -Wall -ansi
+CFLAGS=-Werror -Wall -ansi -g -O2
 LDFLAGS=
 EXEC=jchroot
 
