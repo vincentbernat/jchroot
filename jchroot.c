@@ -56,7 +56,7 @@ struct config {
 };
 
 const char *progname;
-static void usage() {
+static void usage(int code) {
   fprintf(stderr,
 	  "Usage: %s [OPTIONS] TARGET [--] COMMAND\n"
 	  "\n"
@@ -73,7 +73,7 @@ static void usage() {
 	  "  -e N=V   | --env=NAME=VALUE  Set an environment variable\n"
 	  "  -c DIR   | --chdir=DIR       Change directory inside the chroot\n",
 	  progname);
-  exit(EXIT_FAILURE);
+  exit(code);
 }
 
 /* Step 7: Execute command */
@@ -431,7 +431,7 @@ int main(int argc, char * argv[]) {
       config.netns = 1;
       break;
     case 'u':
-      if (!optarg) usage();
+      if (!optarg) usage(EXIT_FAILURE);
 
       struct passwd *passwd;
       passwd = getpwnam(optarg);
@@ -439,7 +439,7 @@ int main(int argc, char * argv[]) {
 	config.user = strtoul(optarg, NULL, 10);
 	if (errno) {
 	  fprintf(stderr, "'%s' is not a valid user\n", optarg);
-	  usage();
+	  usage(EXIT_FAILURE);
 	}
       } else {
 	config.user = passwd->pw_uid;
@@ -448,7 +448,7 @@ int main(int argc, char * argv[]) {
       }
       break;
     case 'g':
-      if (!optarg) usage();
+      if (!optarg) usage(EXIT_FAILURE);
 
       struct group *group;
       group = getgrnam(optarg);
@@ -456,49 +456,52 @@ int main(int argc, char * argv[]) {
 	config.group = strtoul(optarg, NULL, 10);
 	if (errno) {
 	  fprintf(stderr, "'%s' is not a valid group\n", optarg);
-	  usage();
+	  usage(EXIT_FAILURE);
 	}
       } else {
 	config.group = group->gr_gid;
       }
       break;
     case 'f':
-      if (!optarg) usage();
+      if (!optarg) usage(EXIT_FAILURE);
       config.fstab = optarg;
       break;
     case 'n':
-      if (!optarg) usage();
+      if (!optarg) usage(EXIT_FAILURE);
       config.hostname = optarg;
       break;
     case 'e':
-      if (!optarg) usage();
+      if (!optarg) usage(EXIT_FAILURE);
       if (putenv(optarg) != 0) {
 	fprintf(stderr, "failed to set environment variable: %s\n", optarg);
-	usage();
+	usage(EXIT_FAILURE);
       }
       break;
     case 'c':
-      if (!optarg) usage();
+      if (!optarg) usage(EXIT_FAILURE);
       config.chdir_to = optarg;
       break;
     case 'p':
-      if (!optarg) usage();
+      if (!optarg) usage(EXIT_FAILURE);
       config.pid_file = optarg;
       break;
+    case 'h':
+      usage(EXIT_SUCCESS);
+      break;
     default:
-      usage();
+      usage(EXIT_FAILURE);
     }
   }
 
   if (!config.userns &&
       (config.uid_map != NULL || config.gid_map != NULL)) {
     fprintf(stderr, "cannot use UID/GID mapping without a user namespace\n");
-    usage();
+    usage(EXIT_FAILURE);
   }
 
-  if (optind == argc) usage();
+  if (optind == argc) usage(EXIT_FAILURE);
   config.target = argv[optind++];
-  if (optind == argc) usage();
+  if (optind == argc) usage(EXIT_FAILURE);
   config.command = argv + optind;
 
   struct stat st;
