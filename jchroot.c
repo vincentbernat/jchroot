@@ -347,7 +347,7 @@ static int step1(struct config *config) {
     return EXIT_FAILURE;
   }
 
-  FILE *pid_file;
+  FILE *pid_file = NULL;
 
   if (config->pid_file) {
     pid_file = fopen(config->pid_file, "w");
