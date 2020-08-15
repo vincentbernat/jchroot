@@ -186,8 +186,8 @@ static int step5 (struct config *config){
     struct timespec newtime;
     newtime.tv_sec = config->time;
     newtime.tv_nsec = 0;
-    if (clock_settime(CLOCK_REALTIME, &newtime)) {
-      fprintf(stderr, "unable to set system time to '%li'\n", config->time);
+    if (clock_settime(CLOCK_BOOTTIME, &newtime) || clock_settime(CLOCK_MONOTONIC, &newtime)) {
+      fprintf(stderr, "unable to set system time to '%li': %m\n", config->time);
     }
   }
 
