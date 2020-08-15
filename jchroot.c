@@ -182,6 +182,8 @@ static int step6(struct config *config) {
 
 /* Step 5 : Set system time */
 static int step5 (struct config *config){
+  pid_t pid;
+  int   wstatus;
   if (config->timens && config->time) {
     struct timespec newtime;
     newtime.tv_sec = config->time;
@@ -189,8 +191,19 @@ static int step5 (struct config *config){
     if (clock_settime(CLOCK_BOOTTIME, &newtime) || clock_settime(CLOCK_MONOTONIC, &newtime)) {
       fprintf(stderr, "unable to set system time to '%li': %m\n", config->time);
     }
-  }
 
+    pid = fork();
+    switch (pid) {
+    case -1:
+      fprintf(stderr, "unable to fork: %m\n");
+      return EXIT_FAILURE;
+    case 0:
+      return step6(config);
+    default:
+      waitpid(pid, &wstatus, 0);
+      return wstatus;
+    }
+  }
   return step6(config);
 }
 
