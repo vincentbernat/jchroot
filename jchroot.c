@@ -29,6 +29,21 @@
 #include <alloca.h>
 #include <errno.h>
 #include <sched.h>
+
+/*
+ * glibc does not define CLONE_NEWTIME for time namespaces (yet).
+ * However, it can be used if it is defined in the Linux headers.
+ * If it is not available there either, this feature will be disabled.
+ * The time namespace feature has been introduced with Linux Kernel 5.6 (03/29/2020).
+ */
+#ifndef CLONE_NEWTIME
+# include <linux/sched.h> */
+#endif
+
+#ifdef CLONE_NEWTIME
+# include <time.h>
+#endif
+
 #include <pwd.h>
 #include <grp.h>
 #include <mntent.h>
@@ -43,6 +58,10 @@ struct config {
   int   pipe_fd[2];
   int   userns;
   int   netns;
+  #ifdef CLONE_NEWTIME
+  int   timens;
+  time_t time;
+  #endif
   uid_t user;
   gid_t group;
   char *fstab;
@@ -63,6 +82,10 @@ static void usage(int code) {
 	  "Available options:\n"
 	  "  -U       | --new-user-ns     Use a new user namespace\n"
 	  "  -N       | --new-network-ns  Use a new network namespace\n"
+	  #ifdef CLONE_NEWTIME
+	  "  -T       | --new-time-ns     Use a new time namespace\n"
+	  "  -t       | --time            Specify a (UNIX) system time\n"
+	  #endif
 	  "  -u USER  | --user=USER       Specify user to use after chroot\n"
 	  "  -g USER  | --group=USER      Specify group to use after chroot\n"
 	  "  -f FSTAB | --fstab=FSTAB     Specify a fstab(5) file\n"
@@ -76,8 +99,8 @@ static void usage(int code) {
   exit(code);
 }
 
-/* Step 7: Execute command */
-static int step7(struct config *config) {
+/* Step 8: Execute command */
+static int step8(struct config *config) {
   if (config->chdir_to != NULL && chdir(config->chdir_to)) {
     fprintf(stderr, "unable to change directory: %m\n");
     return EXIT_FAILURE;
@@ -92,8 +115,8 @@ static int step7(struct config *config) {
   return 0; /* No real return... */
 }
 
-/* Step 6: Drop (or increase) privileges */
-static int step6(struct config *config) {
+/* Step 7: Drop (or increase) privileges */
+static int step7(struct config *config) {
   if (config->group != (gid_t) -1 && setgid(config->group)) {
     fprintf(stderr, "unable to change to GID %d: %m\n", config->group);
     return EXIT_FAILURE;
@@ -115,11 +138,11 @@ static int step6(struct config *config) {
     prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0);
   }
   #endif
-  return step7(config);
+  return step8(config);
 }
 
-/* Step 5: Chroot with pivot_root */
-static int step5(struct config *config) {
+/* Step 6: Chroot with pivot_root */
+static int step6(struct config *config) {
   char *template = NULL;
   char *p = NULL;
   if (mount("", "/", "", MS_PRIVATE | MS_REC, "") == -1) {
@@ -167,8 +190,24 @@ static int step5(struct config *config) {
     free(template);
     return EXIT_FAILURE;
   }
+  return step7(config);
+}
+
+#ifdef CLONE_NEWTIME
+/* Step 5 : Set system time */
+static int step5 (struct config *config){
+  if (config->timens && config->time) {
+    struct timespec newtime;
+    newtime.tv_sec = config->time;
+    newtime.tv_nsec = 0;
+    if (clock_settime(CLOCK_REALTIME, &newtime)) {
+      fprintf(stderr, "unable to set system time to '%li'\n", config->time);
+    }
+  }
+  
   return step6(config);
 }
+#endif
 
 /* Step 4: Set hostname */
 static int step4(struct config *config) {
@@ -177,7 +216,11 @@ static int step4(struct config *config) {
     fprintf(stderr, "unable to change hostname to '%s': %m\n",
 	    config->hostname);
   }
+  #ifdef CLONE_NEWTIME
   return step5(config);
+  #else
+  return step6(config);
+  #endif
 }
 
 struct mount_opt {
@@ -361,6 +404,9 @@ static int step1(struct config *config) {
   if (config->hostname) flags |= CLONE_NEWUTS;
   if (config->userns) flags |= CLONE_NEWUSER;
   if (config->netns) flags |= CLONE_NEWNET;
+  #ifdef CLONE_NEWTIME
+  if (config->timens) flags |= CLONE_NEWTIME;
+  #endif
   pid = clone(step3,
 	      stack,
 	      SIGCHLD | flags | CLONE_FILES,
@@ -400,6 +446,10 @@ int main(int argc, char * argv[]) {
     static struct option long_options[] = {
       { "new-user-ns",    no_argument,       0, 'U' },
       { "new-network-ns", no_argument,       0, 'N' },
+      #ifdef CLONE_NEWTIME
+      { "new-time-ns",    required_argument, 0, 'T' },
+      { "time",           required_argument, 0, 't' },
+      #endif
       { "user",           required_argument, 0, 'u' },
       { "group",          required_argument, 0, 'g' },
       { "fstab",          required_argument, 0, 'f' },
@@ -413,7 +463,7 @@ int main(int argc, char * argv[]) {
       { 0,                0,                 0, 0   }
     };
 
-    c = getopt_long(argc, argv, "hNUu:g:f:n:M:G:p:e:c:",
+    c = getopt_long(argc, argv, "hNUTu:t:g:f:n:M:G:p:e:c:",
 		    long_options, &option_index);
     if (c == -1) break;
 
@@ -430,6 +480,19 @@ int main(int argc, char * argv[]) {
     case 'N':
       config.netns = 1;
       break;
+    #ifdef CLONE_NEWTIME
+    case 'T':
+      config.timens = 1;
+      break;
+    case 't':
+      if (!optarg) usage(EXIT_FAILURE);
+      config.time = strtol(optarg, NULL, 10);
+      if (errno || (config.time == 0L)) {
+	fprintf(stderr, "'%s' is not a valid UNIX time value (seconds since epoch)\n", optarg);
+	usage(EXIT_FAILURE);
+      }
+      break;
+    #endif
     case 'u':
       if (!optarg) usage(EXIT_FAILURE);
 
