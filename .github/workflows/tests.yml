@@ -1,0 +1,17 @@
+name: CI
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: 0 7 1 * *
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: Build
+        run: |
+          make
+      - name: Test
+        run: |
+          ./jchroot --help
