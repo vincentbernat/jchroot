@@ -122,10 +122,6 @@ static int step6(struct config *config) {
 static int step5(struct config *config) {
   char *template = NULL;
   char *p = NULL;
-  if (mount("", "/", "", MS_PRIVATE | MS_REC, "") == -1) {
-    fprintf(stderr, "unable to make current root private: %m\n");
-    return EXIT_FAILURE;
-  }
   if (mount(config->target, config->target, "bind", MS_BIND|MS_REC, "") == -1) {
     fprintf(stderr, "unable to turn new root into mountpoint: %m\n");
     return EXIT_FAILURE;
@@ -222,6 +218,10 @@ static int step3(void *arg) {
    * these might be used to break out of the chroot */
   unshare(CLONE_FILES);
 
+  if (mount("", "/", "", MS_PRIVATE | MS_REC, "") == -1) {
+    fprintf(stderr, "unable to make current root private: %m\n");
+    return EXIT_FAILURE;
+  }
   if (config->fstab) {
     struct mntent *mntent;
     char path[256];
