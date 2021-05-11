@@ -32,6 +32,7 @@
 .Op Fl p | Fl -pidfile Ar pidfile
 .Op Fl e | Fl -env Ar name=value
 .Op Fl c | Fl -chdir Ar directory
+.Op Fl b | Fl -background
 .Ar target
 .Op --
 .Ar command
@@ -110,6 +111,19 @@ Write PID of child process to file.
 Set an environment variable. This option can be specified more than once.
 .It Fl c | Fl -chdir Ar directory
 Change to the specified directory after entering the chroot.
+.It Fl b | Fl -background
+Allow processes started by
+.Nm
+to continue in the background. Otherwise, they will be killed abruptly
+with a SIGKILL signal once
+.Nm
+terminates. Due to the use of a PID namespace, the process running as
+PID 1 in the chroot will only handle SIGKILL and SIGSTOP from an
+ancestor, and all other signals need a specific handler (no default
+handler). Therefore, when using this option and using Ctrl-C to stop a
+process, the process may continue the background instead of
+terminating. Note this option does not put the command in background
+by itself.
 .It Fl h | Fl -help
 Get help.
 .El

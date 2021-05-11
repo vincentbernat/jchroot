@@ -43,6 +43,7 @@ struct config {
   int   pipe_fd[2];
   int   userns;
   int   netns;
+  int   background;
   uid_t user;
   gid_t group;
   char *fstab;
@@ -71,7 +72,8 @@ static void usage(int code) {
 	  "  -G MAP   | --gid-map=MAP     Comma-separated list of GID mappings\n"
 	  "  -p FILE  | --pidfile=FILE    Write PID of child process to file\n"
 	  "  -e N=V   | --env=NAME=VALUE  Set an environment variable\n"
-	  "  -c DIR   | --chdir=DIR       Change directory inside the chroot\n",
+	  "  -c DIR   | --chdir=DIR       Change directory inside the chroot\n"
+          "  -b       | --background      Allow launched command to continue in background\n",
 	  progname);
   exit(code);
 }
@@ -81,6 +83,11 @@ static int step7(struct config *config) {
   if (config->chdir_to != NULL && chdir(config->chdir_to)) {
     fprintf(stderr, "unable to change directory: %m\n");
     return EXIT_FAILURE;
+  }
+  if (!config->background) {
+    /* Cannot use SIGTERM, it would be ignored. Killing PID 1 will
+     * also kill other processes. */
+    prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0, 0);
   }
   if (execvp(config->command[0], config->command) == -1) {
     int i = 1;
@@ -409,11 +416,12 @@ int main(int argc, char * argv[]) {
       { "pidfile",        required_argument, 0, 'p' },
       { "env",            required_argument, 0, 'e' },
       { "chdir",          required_argument, 0, 'c' },
+      { "background",     no_argument,       0, 'b' },
       { "help",           no_argument,       0, 'h' },
       { 0,                0,                 0, 0   }
     };
 
-    c = getopt_long(argc, argv, "hNUu:g:f:n:M:G:p:e:c:",
+    c = getopt_long(argc, argv, "hNUu:g:f:n:M:G:p:e:c:b",
 		    long_options, &option_index);
     if (c == -1) break;
 
@@ -429,6 +437,9 @@ int main(int argc, char * argv[]) {
       break;
     case 'N':
       config.netns = 1;
+      break;
+    case 'b':
+      config.background = 1;
       break;
     case 'u':
       if (!optarg) usage(EXIT_FAILURE);
