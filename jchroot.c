@@ -133,7 +133,7 @@ static int step5(struct config *config) {
     fprintf(stderr, "unable to turn new root into mountpoint: %m\n");
     return EXIT_FAILURE;
   }
-  if (asprintf(&template, "%s/tmp/.pivotrootXXXXXX", config->target) == -1) {
+  if (asprintf(&template, "%s/.pivotrootXXXXXX", config->target) == -1) {
     fprintf(stderr, "unable to allocate template directory: %m\n");
     return EXIT_FAILURE;
   }
